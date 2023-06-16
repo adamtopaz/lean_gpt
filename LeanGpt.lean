@@ -1,1 +1,2 @@
-def hello := "world"
+import LeanGpt.Types
+import LeanGpt.Basic
