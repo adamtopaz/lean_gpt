@@ -58,4 +58,42 @@ def getResponse : GPTM GPT.Message := do
 {choice}"
   return message
 
+def streamResponse : GPTM Unit := do
+  let req : Json := Json.mkObj [
+      ("model", "gpt-4"),
+      ("messages", toJson <| ← get),
+      ("stream", true)
+  ]
+  let child ← IO.Process.spawn {
+    cmd := "curl"
+    args := #[ 
+      "https://api.openai.com/v1/chat/completions", "-N", 
+      "-H", "Content-Type: application/json",
+      "-H", "Authorization: Bearer " ++ (← read).apiKey, 
+      "--data-binary", "@-"]
+    stdin := .piped
+    stderr := .piped
+    stdout := .piped
+  }
+  let (stdin,child) ← child.takeStdin
+  stdin.putStr <| toString req
+  stdin.flush
+  let stdout ← IO.getStdout
+  while true do
+    let res ← child.stdout.getLine
+    if res == "\n" then continue
+    if res == "" then break
+    let some res := (res.splitOn "data: ")[1]? | continue
+    if res == "[DONE]\n" then break
+    let .ok json := Json.parse res | continue
+    let .ok choices := json.getObjValAs? (Array Json) "choices" | continue
+    let some choice := choices[0]? | continue
+    let .ok delta := choice.getObjValAs? Json "delta" | continue
+    let .ok content := delta.getObjValAs? String "content" | continue
+    stdout.putStr content
+    stdout.flush
+  let err ← child.stderr.readToEnd
+  let exitCode ← child.wait
+  if exitCode != 0 then throw <| .userError err
+
 end GPTM

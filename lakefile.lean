@@ -10,6 +10,6 @@ lean_lib «LeanGpt» {
 }
 
 @[default_target]
-lean_exe «lean_gpt» {
+lean_exe «askgpt» {
   root := `Main
 }
