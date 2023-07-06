@@ -57,7 +57,7 @@ def getResponses (n : Nat) : GPTM (Array GPT.Message) := do
   return choices
 
 def getResponse : GPTM GPT.Message := do
-  let msgs ← getResponses 0 
+  let msgs ← getResponses 1 
   let some msg := msgs[0]? | 
     throw <| .userError s!"No messages were returned." 
   return msg
