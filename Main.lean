@@ -1,11 +1,15 @@
 import LeanGpt
 
-def main (args : List String) : IO Unit := do
-  let input := args.intersperse " " |>.foldl (· ++ ·) ""
-  GPTM.streamResponse.run #[
-    {role := .system, content := 
-"You are a helpful assistant.
-Respond to the user's query."},
-    {role := .user, content := input}
-    ]
-  --IO.println out.content
+partial def loop (stdin : IO.FS.Stream) : GPTM Unit := do
+  IO.print "User: "
+  let prompt ← stdin.getLine
+  if prompt.trim == "QUIT" then return
+  modify fun hist => hist.push { content := prompt }
+  IO.print "Assistant: "
+  GPTM.streamResponse
+  IO.println ""
+  loop stdin
+
+def main : IO Unit := do
+  let stdin ← IO.getStdin
+  (loop stdin).run #[{ role := .system, content := "You are a helpful assistant."}]

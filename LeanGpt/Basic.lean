@@ -83,6 +83,7 @@ def streamResponse : GPTM Unit := do
   stdin.putStr <| toString req
   stdin.flush
   let stdout ← IO.getStdout
+  let mut out : String := ""
   while true do
     let res ← child.stdout.getLine
     if res == "\n" then continue
@@ -96,8 +97,10 @@ def streamResponse : GPTM Unit := do
     let .ok content := delta.getObjValAs? String "content" | continue
     stdout.putStr content
     stdout.flush
+    out := out ++ content
   let err ← child.stderr.readToEnd
   let exitCode ← child.wait
   if exitCode != 0 then throw <| .userError err
+  modify fun hist => hist.push { role := .assistant, content := out }
 
 end GPTM
