@@ -119,7 +119,7 @@ partial def solveAllTasks : AgentM Unit := do
   cmd.exec param
   solveAllTasks
 
-#eval show IO Unit from do
+#check show IO Unit from do
   let e : AgentM (Array GPT.Message) := do
     solveAllTasks
     return (← getThe (Array _)) 
@@ -141,7 +141,6 @@ partial def solveAllTasks : AgentM Unit := do
           descr := "A basic task."
           content := "Say something random."
         }
-
       ] 
     }
   IO.println <| toJson out
