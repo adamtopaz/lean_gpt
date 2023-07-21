@@ -9,6 +9,10 @@ lean_lib «LeanGpt» {
   -- add library configuration options here
 }
 
+lean_lib «Agent» {
+  -- add library configuration options here
+}
+
 @[default_target]
 lean_exe «askgpt» {
   root := `Main

@@ -9,10 +9,10 @@ structure Config where
 deriving ToJson, FromJson
 
 inductive Role where | system | user | assistant
-deriving ToJson, FromJson
+deriving ToJson, FromJson, BEq
 
 structure Message where
-  role : Role
+  role : Role := .user
   content : String 
 deriving ToJson, FromJson
 
