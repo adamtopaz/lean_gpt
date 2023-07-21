@@ -24,4 +24,21 @@ def greet : Command where
         }
     }
 
+def removeTasks : Command where
+  name := "removeTask"
+  descr := "Remove all tasks with a given name from the task list.
+You should use this to remove tasks which have been completed."
+  schema := .mkObj [
+    ("type", "string")
+  ]
+  sampleUsage := .mkObj [
+    ("command","removeTask"),
+    ("param", "task_name")
+  ]
+  exec param := do
+    let .str task_name := param | return
+    modify fun state => {
+      state with tasks := state.tasks.filter fun t => t.name != task_name
+    }
+
 end Agent

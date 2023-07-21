@@ -93,7 +93,7 @@ def runState (m : AgentM α) (cfg : Config := {}) (state : State := {}) : IO (α
 def run (m : AgentM α) (cfg : Config := {}) (state : State := {}) : IO α := 
   m.runState cfg state <&> Prod.fst
 
-def get : AgentM GPT.Message := do
+def getMsg : AgentM GPT.Message := do
   let history ← getThe (Array GPT.Message)
   let history := history.filter fun a => a.role != .system
   let msgs : Array GPT.Message := #[{ role := .system, content := ← systemPrompt }] ++ history
@@ -102,21 +102,48 @@ def get : AgentM GPT.Message := do
 
 def send (msg : GPT.Message) : AgentM GPT.Message := do
   modifyThe (Array GPT.Message) fun hist => hist.push msg
-  get
+  getMsg
 
 def main : Config where
   systemBase := "You are an autonomous agent whose goal is to solve the given tasks."
-  commands := #[greet]
+  commands := #[greet, removeTasks]
+
+partial def solveAllTasks : AgentM Unit := do
+  if (← getThe (Array Task)).size == 0 then return
+  let res ← getMsg 
+  let .ok res := Json.parse res.content | solveAllTasks 
+  let .ok cmd := res.getObjValAs? String "command" | solveAllTasks
+  let .ok param := res.getObjValAs? Json "param" | solveAllTasks
+  let cmds ← readThe (Array Command) 
+  let some cmd := cmds.find? fun c => c.name == cmd | solveAllTasks
+  cmd.exec param
+  solveAllTasks
 
 #eval show IO Unit from do
-  IO.println <| ← systemPrompt.run main
+  let e : AgentM (Array GPT.Message) := do
+    solveAllTasks
+    return (← getThe (Array _)) 
+  let out ← e.run main
     { tasks := 
       #[
         { 
           name := "say_hello" 
           descr := "A basic task."
-          content := "Say hello."}
+          content := "Say hello."
+        },
+        { 
+          name := "say_bye" 
+          descr := "A basic task."
+          content := "Say goodbye."
+        },
+        { 
+          name := "say_something_random" 
+          descr := "A basic task."
+          content := "Say something random."
+        }
+
       ] 
     }
+  IO.println <| toJson out
 
 end AgentM
