@@ -45,7 +45,7 @@ def systemPrompt : AgentM String := do
   return s!"{base}
 
 This system message contains the following information, each in its own section:
-1. Tasks: The list of tasks to complete.
+1. Task: The current task to complete.
 2. Commands: The list of available commands.
 3. Working Memory: Your working memory.
 4. Observations: A collection of observations.
@@ -66,7 +66,7 @@ then to use this command to send a greeting saying \"Hello world!\", you must re
 
 Each command description has a field called \"sampleUsage\" providing an example illustrating how to use the given command.
 
-Tasks:
+Task:
 ======
 
 {← task}
@@ -104,15 +104,28 @@ def send (msg : GPT.Message) : AgentM GPT.Message := do
   modifyThe (Array GPT.Message) fun hist => hist.push msg
   getMsg
 
-def main : Config where
+def mainCfg : Config where
   systemBase := "You are an autonomous agent whose goal is to solve the given tasks."
-  commands := #[greet, solveTask]
+  commands := #[checkTemperature, solveTask]
 
 partial def solveTask : AgentM Solution := do
   --if (← getThe (Array Task)).size == 0 then return
   if let some sol := (← getThe (Option Solution)) then 
     return sol
+  IO.println "PROMPT"
+  IO.println "======"
+  IO.println "======"
+  IO.println (← systemPrompt)
+  IO.println "HISTORY"
+  IO.println "======"
+  IO.println "======"
+  IO.println <| toJson (← getThe (Array GPT.Message))
   let res ← getMsg 
+  IO.println "RESPONSE"
+  IO.println "========"
+  IO.println "========"
+  IO.println (toJson res)
+
   let .ok res := Json.parse res.content | solveTask 
   let .ok cmd := res.getObjValAs? String "command" | solveTask
   let .ok param := res.getObjValAs? Json "param" | solveTask
@@ -121,15 +134,20 @@ partial def solveTask : AgentM Solution := do
   cmd.exec param
   solveTask
 
-#eval show IO Unit from do
+end AgentM
+
+open AgentM
+
+def main : IO Unit := do
   let e : AgentM String := do
     let sol ← solveTask
+    IO.println (← systemPrompt)
     return s!"{toJson sol}"
-  let out ← e.run main
+  let out ← e.run mainCfg
     { task := 
         { 
           name := "write_poem" 
-          spec := "Write a poem about cats."
+          spec := "Write a poem about Cats, which includes information about the current temperature in a random city in Europe."
           schema := .mkObj [
             ("type","object"),
             ("properties",.mkObj [
@@ -141,5 +159,3 @@ partial def solveTask : AgentM Solution := do
         }
     }
   IO.println <| out
-
-end AgentM

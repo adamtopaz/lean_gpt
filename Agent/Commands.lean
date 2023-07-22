@@ -24,6 +24,32 @@ def greet : Command where
         }
     }
 
+def checkTemperature : Command where
+  name := "check_temp"
+  descr := "Check the temperature in a given location."
+  schema := .mkObj [
+    ("type", "string")
+  ]
+  sampleUsage := .mkObj [
+    ("command","check_temp"),
+    ("param", "London")
+  ]
+  exec param := do
+    let .str loc := param | return 
+    let out ← IO.Process.output {
+      cmd := "curl"
+      args := #[s!"wttr.in/{loc}?format=%t"]
+    }
+    modify fun state => {
+      state with 
+      workingMems := state.workingMems.push 
+        { 
+          name := "temp" 
+          descr := s!"The temperature at {loc}"
+          content := out.stdout
+        }
+    }
+
 def solveTask : Command where
   name := "solve_task"
   descr := "Solve the given task.
