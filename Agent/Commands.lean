@@ -44,12 +44,13 @@ You should use this to remove tasks which have been completed."
 def solveTasks : Command where
   name := "solve_tasks"
   descr := "Solve all tasks with a given name rom the task list.
-You should only use this once you have enough information to solve the given tasks."
+You should only use this once you have enough information to solve the given tasks.
+The provided solution *must* follow to the solutionSchema of the given task."
   schema := .mkObj [
     ("type", "object"),
     ("properties", .mkObj [
       ("task_name", .mkObj [("type","string")]),
-      ("solution", .mkObj [("type","string")])
+      ("solution", .mkObj [("$ref","solutionSchema")])
     ]),
     ("required", Lean.toJson ["task_name","solution"])
   ]

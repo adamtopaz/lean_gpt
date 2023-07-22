@@ -120,7 +120,7 @@ partial def solveAllTasks : AgentM Unit := do
   cmd.exec param
   solveAllTasks
 
-#eval show IO Unit from do
+#check show IO Unit from do
   let e : AgentM String := do
     solveAllTasks
     return (← taskList)
@@ -131,24 +131,17 @@ partial def solveAllTasks : AgentM Unit := do
           name := "write_poem" 
           descr := "A basic task.."
           content := "Write a poem about cats."
-          solutionSchema := .mkObj [("type","string")]
+          solutionSchema := .mkObj [
+            ("type","object"),
+            ("properties",.mkObj [
+              ("poem", .mkObj [("type","string")])
+            ])
+            ]
         },
         { 
           name := "say_hello" 
           descr := "A basic task."
           content := "Say hello."
-          solutionSchema := .mkObj [("type","string")]
-        },
-        { 
-          name := "say_bye" 
-          descr := "A basic task."
-          content := "Say goodbye."
-          solutionSchema := .mkObj [("type","string")]
-        },
-        { 
-          name := "say_something_random" 
-          descr := "A basic task."
-          content := "Say something random."
           solutionSchema := .mkObj [("type","string")]
         }
       ] 
