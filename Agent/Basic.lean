@@ -108,23 +108,30 @@ def mainCfg : Config where
   systemBase := "You are an autonomous agent whose goal is to solve the given tasks."
   commands := #[checkTemperature, solveTask]
 
-partial def solveTask : AgentM Solution := do
+partial def solveTask (trace : Bool := false) : AgentM Solution := do
   --if (← getThe (Array Task)).size == 0 then return
+  if trace then
+    IO.println "PROMPT"
+    IO.println "======"
+    IO.println "======"
+    IO.println ""
+    IO.println (← systemPrompt)
+    IO.println "HISTORY"
+    IO.println "======"
+    IO.println "======"
+    IO.println ""
+    IO.println <| toJson (← getThe (Array GPT.Message))
+
   if let some sol := (← getThe (Option Solution)) then 
     return sol
-  IO.println "PROMPT"
-  IO.println "======"
-  IO.println "======"
-  IO.println (← systemPrompt)
-  IO.println "HISTORY"
-  IO.println "======"
-  IO.println "======"
-  IO.println <| toJson (← getThe (Array GPT.Message))
+
   let res ← getMsg 
-  IO.println "RESPONSE"
-  IO.println "========"
-  IO.println "========"
-  IO.println (toJson res)
+  if trace then
+    IO.println "RESPONSE"
+    IO.println "========"
+    IO.println "========"
+    IO.println ""
+    IO.println (toJson res)
 
   let .ok res := Json.parse res.content | solveTask 
   let .ok cmd := res.getObjValAs? String "command" | solveTask
@@ -141,19 +148,17 @@ open AgentM
 def main : IO Unit := do
   let e : AgentM String := do
     let sol ← solveTask
-    IO.println (← systemPrompt)
     return s!"{toJson sol}"
   let out ← e.run mainCfg
     { task := 
         { 
-          name := "write_poem" 
-          spec := "Write a poem about Cats, which includes information about the current temperature in a random city in Europe."
+          name := "find_temp" 
+          spec := "Find the temperature in a random city in Europe"
           schema := .mkObj [
             ("type","object"),
             ("properties",.mkObj [
-              ("title", .mkObj [("type","string")]),
-              ("author", .mkObj [("type","string")]),
-              ("content", .mkObj [("type","string")])
+              ("city", .mkObj [("type","string")]),
+              ("temp", .mkObj [("type","int")])
             ])
             ]
         }
