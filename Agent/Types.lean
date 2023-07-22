@@ -18,15 +18,18 @@ structure Observation where
 deriving ToJson, FromJson
 
 structure Task where
-  name : String
-  descr : String
-  content : String
-  solution : Option Json := none
-  solutionSchema : Json
+  name : String 
+  spec : String 
+  schema : Json
 deriving ToJson, FromJson
 
+structure Solution where
+  solution : Json
+deriving ToJson, FromJson, Inhabited
+
 structure State where
-  tasks : Array Task := #[]
+  task : Task := { name := "empty", spec := "Do Nothing", schema := .mkObj [] }
+  solution : Option Solution := none
   workingMems : Array WorkingMem := #[]
   obs : Array Observation := #[]
   history : Array GPT.Message := #[]
@@ -58,17 +61,30 @@ abbrev AgentM := ReaderT Config (StateRefT State IO)
 
 namespace AgentM
 
-instance : MonadStateOf (Array Task) AgentM where
+instance : MonadStateOf Task AgentM where
   get := do
     let state ← getThe State
-    return state.tasks
+    return state.task
   set e := do
     let state ← getThe State
-    set { state with tasks := e }
+    set { state with task := e }
   modifyGet f := do 
     let state ← getThe State
-    let (out, tasks) := f state.tasks
-    set { state with tasks := tasks }
+    let (out, task) := f state.task
+    set { state with task := task }
+    return out
+
+instance : MonadStateOf (Option Solution) AgentM where
+  get := do
+    let state ← getThe State
+    return state.solution
+  set e := do
+    let state ← getThe State
+    set { state with solution := e }
+  modifyGet f := do 
+    let state ← getThe State
+    let (out, sol) := f state.solution
+    set { state with solution := sol }
     return out
 
 instance : MonadStateOf (Array WorkingMem) AgentM where

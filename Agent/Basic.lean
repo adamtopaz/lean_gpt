@@ -14,9 +14,9 @@ def newline : String :=
 def formatList {α : Type} [ToJson α] (A : Array α) : String := 
   A.map (toString ∘ toJson) |>.toList |>.intersperse newline |>.foldl (· ++ ·) ""
 
-def taskList : AgentM String := do
-  let tasks ← getThe (Array Task)
-  return formatList tasks
+def task : AgentM String := do
+  let task ← getThe Task
+  return s!"{toJson task}"
 
 def commandList : AgentM String := do
   let obs ← readThe (Array Command)
@@ -69,7 +69,7 @@ Each command description has a field called \"sampleUsage\" providing an example
 Tasks:
 ======
 
-{← taskList}
+{← task}
 
 Commands:
 =========
@@ -106,45 +106,39 @@ def send (msg : GPT.Message) : AgentM GPT.Message := do
 
 def main : Config where
   systemBase := "You are an autonomous agent whose goal is to solve the given tasks."
-  commands := #[greet, solveTasks]
+  commands := #[greet, solveTask]
 
-partial def solveAllTasks : AgentM Unit := do
+partial def solveTask : AgentM Solution := do
   --if (← getThe (Array Task)).size == 0 then return
-  if ((← getThe (Array Task)).filter fun i => i.solution == none).size == 0 then return
+  if let some sol := (← getThe (Option Solution)) then 
+    return sol
   let res ← getMsg 
-  let .ok res := Json.parse res.content | solveAllTasks 
-  let .ok cmd := res.getObjValAs? String "command" | solveAllTasks
-  let .ok param := res.getObjValAs? Json "param" | solveAllTasks
+  let .ok res := Json.parse res.content | solveTask 
+  let .ok cmd := res.getObjValAs? String "command" | solveTask
+  let .ok param := res.getObjValAs? Json "param" | solveTask
   let cmds ← readThe (Array Command) 
-  let some cmd := cmds.find? fun c => c.name == cmd | solveAllTasks
+  let some cmd := cmds.find? fun c => c.name == cmd | solveTask
   cmd.exec param
-  solveAllTasks
+  solveTask
 
-#check show IO Unit from do
+#eval show IO Unit from do
   let e : AgentM String := do
-    solveAllTasks
-    return (← taskList)
+    let sol ← solveTask
+    return s!"{toJson sol}"
   let out ← e.run main
-    { tasks := 
-      #[
+    { task := 
         { 
           name := "write_poem" 
-          descr := "A basic task.."
-          content := "Write a poem about cats."
-          solutionSchema := .mkObj [
+          spec := "Write a poem about cats."
+          schema := .mkObj [
             ("type","object"),
             ("properties",.mkObj [
-              ("poem", .mkObj [("type","string")])
+              ("title", .mkObj [("type","string")]),
+              ("author", .mkObj [("type","string")]),
+              ("content", .mkObj [("type","string")])
             ])
             ]
-        },
-        { 
-          name := "say_hello" 
-          descr := "A basic task."
-          content := "Say hello."
-          solutionSchema := .mkObj [("type","string")]
         }
-      ] 
     }
   IO.println <| out
 
