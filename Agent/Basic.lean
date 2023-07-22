@@ -106,10 +106,11 @@ def send (msg : GPT.Message) : AgentM GPT.Message := do
 
 def main : Config where
   systemBase := "You are an autonomous agent whose goal is to solve the given tasks."
-  commands := #[greet, removeTasks]
+  commands := #[greet, solveTasks]
 
 partial def solveAllTasks : AgentM Unit := do
-  if (← getThe (Array Task)).size == 0 then return
+  --if (← getThe (Array Task)).size == 0 then return
+  if ((← getThe (Array Task)).filter fun i => i.solution == none).size == 0 then return
   let res ← getMsg 
   let .ok res := Json.parse res.content | solveAllTasks 
   let .ok cmd := res.getObjValAs? String "command" | solveAllTasks
@@ -119,30 +120,39 @@ partial def solveAllTasks : AgentM Unit := do
   cmd.exec param
   solveAllTasks
 
-#check show IO Unit from do
-  let e : AgentM (Array GPT.Message) := do
+#eval show IO Unit from do
+  let e : AgentM String := do
     solveAllTasks
-    return (← getThe (Array _)) 
+    return (← taskList)
   let out ← e.run main
     { tasks := 
       #[
         { 
+          name := "write_poem" 
+          descr := "A basic task.."
+          content := "Write a poem about cats."
+          solutionSchema := .mkObj [("type","string")]
+        },
+        { 
           name := "say_hello" 
           descr := "A basic task."
           content := "Say hello."
+          solutionSchema := .mkObj [("type","string")]
         },
         { 
           name := "say_bye" 
           descr := "A basic task."
           content := "Say goodbye."
+          solutionSchema := .mkObj [("type","string")]
         },
         { 
           name := "say_something_random" 
           descr := "A basic task."
           content := "Say something random."
+          solutionSchema := .mkObj [("type","string")]
         }
       ] 
     }
-  IO.println <| toJson out
+  IO.println <| out
 
 end AgentM

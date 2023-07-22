@@ -21,6 +21,8 @@ structure Task where
   name : String
   descr : String
   content : String
+  solution : Option Json := none
+  solutionSchema : Json
 deriving ToJson, FromJson
 
 structure State where
