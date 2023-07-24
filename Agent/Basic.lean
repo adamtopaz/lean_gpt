@@ -15,7 +15,7 @@ def formatList {α : Type} [ToJson α] (A : Array α) : String :=
   A.map (toString ∘ toJson) |>.toList |>.intersperse newline |>.foldl (· ++ ·) ""
 
 def task : AgentM String := do
-  let task ← getThe Task
+  let task ← readThe Task
   return s!"{toJson task}"
 
 def commandList : AgentM String := do
@@ -106,61 +106,72 @@ def send (msg : GPT.Message) : AgentM GPT.Message := do
 
 def mainCfg : Config where
   systemBase := "You are an autonomous agent whose goal is to solve the given tasks."
-  commands := #[checkTemperature, solveTask]
+  commands := #[checkTemperature, solveTask, lookupInfo]
 
-partial def solveTask (trace : Bool := false) : AgentM Solution := do
+partial def solveTask (handle : IO.FS.Handle) 
+    (trace : Bool := true) (interactive := true) : AgentM Solution := do
   --if (← getThe (Array Task)).size == 0 then return
+  let logWrite : String → IO Unit := fun s => do
+    IO.println s 
+    handle.putStrLn s
   if trace then
-    IO.println "PROMPT"
-    IO.println "======"
-    IO.println "======"
-    IO.println ""
-    IO.println (← systemPrompt)
-    IO.println "HISTORY"
-    IO.println "======"
-    IO.println "======"
-    IO.println ""
-    IO.println <| toJson (← getThe (Array GPT.Message))
+    logWrite "PROMPT:"
+    logWrite <| ← systemPrompt
+    logWrite "HISTORY:"
+    logWrite <| toString <| toJson <| ← getThe (Array GPT.Message)
+    logWrite "SOLUTION:"
+    logWrite <| toString <| toJson <| ← getThe (Option Solution)
 
   if let some sol := (← getThe (Option Solution)) then 
     return sol
 
   let res ← getMsg 
-  if trace then
-    IO.println "RESPONSE"
-    IO.println "========"
-    IO.println "========"
-    IO.println ""
-    IO.println (toJson res)
 
-  let .ok res := Json.parse res.content | solveTask 
-  let .ok cmd := res.getObjValAs? String "command" | solveTask
-  let .ok param := res.getObjValAs? Json "param" | solveTask
+  if trace then
+    logWrite "RESPONSE:"
+    logWrite <| toString <| toJson res
+
+  let .ok res := Json.parse res.content | solveTask handle 
+  let .ok cmd := res.getObjValAs? String "command" | solveTask handle
+  let .ok param := res.getObjValAs? Json "param" | solveTask handle
   let cmds ← readThe (Array Command) 
-  let some cmd := cmds.find? fun c => c.name == cmd | solveTask
-  cmd.exec param
-  solveTask
+  let some cmd := cmds.find? fun c => c.name == cmd | solveTask handle
+  if interactive then
+    let stdin ← IO.getStdin 
+    IO.print "Continue? (Y/n): "
+    let line ← stdin.getLine
+    if line.trim == "Y" || line.trim = "" then 
+      cmd.exec param
+  else
+    cmd.exec param
+  solveTask handle
 
 end AgentM
 
 open AgentM
 
-def main : IO Unit := do
+def fname : IO System.FilePath := do
+  let dt ← IO.Process.output {
+    cmd := "date"
+    args := #["+%Y-%m-%d::%H:%M:%S"]
+  } <&> (·.stdout)
+  return dt.trim ++ ".log"
+
+def main : IO Unit := do IO.FS.withFile (← fname) .write fun handle => do
   let e : AgentM String := do
-    let sol ← solveTask
+    let sol ← solveTask handle
     return s!"{toJson sol}"
-  let out ← e.run mainCfg
-    { task := 
+  let out ← e.run 
+    { mainCfg with
+      task := 
         { 
           name := "find_temp" 
-          spec := "Find the temperature in a random city in Europe"
+          spec := "If X, Y and Z are the top three cities in the world in terms of population, and foo(CityName) is the current temperature at CityName, then please give me the sum foo(X) + foo(Y) + foo(Z) + B, where B will be defined in the next line.
+Lookup the number of isomorphism classes of abelian groups of order 12, and set B to be that number.
+Your final answer should be a single number."
           schema := .mkObj [
-            ("type","object"),
-            ("properties",.mkObj [
-              ("city", .mkObj [("type","string")]),
-              ("temp", .mkObj [("type","int")])
-            ])
-            ]
+            ("type","int")
+          ]
         }
     }
   IO.println <| out

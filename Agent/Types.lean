@@ -28,7 +28,7 @@ structure Solution where
 deriving ToJson, FromJson, Inhabited
 
 structure State where
-  task : Task := { name := "empty", spec := "Do Nothing", schema := .mkObj [] }
+  --task : Task := { name := "empty", spec := "Do Nothing", schema := .mkObj [] }
   solution : Option Solution := none
   workingMems : Array WorkingMem := #[]
   obs : Array Observation := #[]
@@ -51,6 +51,7 @@ instance : ToJson Command where
 
 structure Config where
   systemBase : String := ""
+  task : Task := { name := "empty", spec := "Do Nothing", schema := .mkObj [] }
   commands : Array Command := #[]
 
 end Agent
@@ -61,18 +62,10 @@ abbrev AgentM := ReaderT Config (StateRefT State IO)
 
 namespace AgentM
 
-instance : MonadStateOf Task AgentM where
-  get := do
-    let state ← getThe State
-    return state.task
-  set e := do
-    let state ← getThe State
-    set { state with task := e }
-  modifyGet f := do 
-    let state ← getThe State
-    let (out, task) := f state.task
-    set { state with task := task }
-    return out
+instance : MonadReaderOf Task AgentM where
+  read := do
+    let cfg ← readThe Config
+    return cfg.task
 
 instance : MonadStateOf (Option Solution) AgentM where
   get := do
